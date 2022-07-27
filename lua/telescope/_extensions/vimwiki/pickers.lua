@@ -58,7 +58,7 @@ M.vimwiki_linkpage = function(opts)
     finder = finders.new_table {
       results = vim.api.nvim_eval(vimwiki_cmd)
     },
-    previewer = conf.grep_previewer(opts),
+    previewer = conf.file_previewer(opts),
     sorter = conf.generic_sorter(opts),
     attach_mappings = function(prompt_bufnr, _)
       actions.select_default:replace(function()
