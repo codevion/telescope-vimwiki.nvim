@@ -30,6 +30,61 @@ M.vimwiki_pages = function(opts)
   }):find()
 end
 
+M.vimwiki_linkpage = function(opts)
+    --TODO: Optionally check if vimwiki index matches anything?
+  local index = '0'
+  if opts then
+    if opts['index'] then
+      index = opts['index']
+    elseif opts['i'] then
+      index = opts['i']
+    end
+  end
+  local vimwiki_cmd = 'vimwiki#base#find_files(' .. index .. ', 0)'
+  vim.api.nvim_exec(':call vimwiki#vars#set_bufferlocal("wiki_nr", ' .. index .. ')', false)
+  local vimwiki_path = vim.api.nvim_eval('vimwiki#vars#get_wikilocal("path")')
+  local file_ext = vim.api.nvim_eval("vimwiki#vars#get_wikilocal('ext')")
+
+  -- Escape the dot in the file_ext for pattern matching
+  -- The extension should always start with a dot, right? this won't hurt anyway
+  if string.sub(file_ext, 1, 1) == "." then
+	file_ext = "%" .. file_ext
+  end
+
+  local filelist = {}
+
+  pickers.new(opts, {
+    prompt_title = "Vimwiki File Link",
+    finder = finders.new_table {
+      results = vim.api.nvim_eval(vimwiki_cmd)
+    },
+    previewer = conf.grep_previewer(opts),
+    sorter = conf.generic_sorter(opts),
+    attach_mappings = function(prompt_bufnr, _)
+      actions.select_default:replace(function()
+        actions.close(prompt_bufnr)
+        local selection = action_state.get_selected_entry()
+        -- The selection is of the form file_path:line_number:column_number:selected_line_text
+        -- We want to get the file_path only. The below pattern might catch false negatives if the file_path contains matching patterns but that will be very odd
+        local abs_path = string.gsub(selection[1], ":%d+:%d+:.+$", "")
+        --Get path relative to file which opened Telescope (which should have been reverted
+        --to after closing telescope picker.)
+        local bufnr = vim.api.nvim_get_current_buf()
+        local current_fname =  vim.api.nvim_buf_get_name(bufnr)
+        local current_dir = vim.fn.fnamemodify(current_fname, ":p:h")
+        local relative_path = vim.api.nvim_eval(
+          "vimwiki#path#relpath('" .. current_dir .. "', '" .. abs_path .. "')"
+        )
+        -- Finally, we remove the file extension. This is also not necessary, but it's the convention
+        relative_path = string.gsub(relative_path, file_ext.."$", "")
+        local link = "["..relative_path.."]".."("..relative_path..")"
+          vim.api.nvim_put({link}, "", true, true)
+        end)
+      return true
+    end,
+  }):find()
+end
+
 M.vimwiki_link = function(opts)
   local index = '0'
   if opts then
